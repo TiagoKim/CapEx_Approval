@@ -1,0 +1,46 @@
+{
+  "name": "capex-approval-app",
+  "version": "1.0.0",
+  "description": "CapEx Approval Application - 투자비 승인 시스템",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm start",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "build": "cd frontend && npm run build",
+    "test": "cd frontend && npm test",
+    "setup": "npm run install-all && npm run setup:env",
+    "setup:env": "node scripts/setup-env.js"
+  },
+  "keywords": [
+    "capex",
+    "approval",
+    "investment",
+    "sharepoint",
+    "azure-ad",
+    "react",
+    "nodejs",
+    "express"
+  ],
+  "author": "CapEx Approval Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-repo/capex-approval-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-repo/capex-approval-app/issues"
+  },
+  "homepage": "https://github.com/your-repo/capex-approval-app#readme"
+}
