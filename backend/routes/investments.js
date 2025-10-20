@@ -298,4 +298,91 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * 투자비 승인 요청 수정
+ * PUT /api/investments/:id
+ */
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const investmentId = req.params.id;
+    
+    // 수정할 데이터 준비
+    const updateData = {
+      fields: {
+        Title: req.body.title,
+        Company: req.body.company,
+        Team: req.body.team,
+        User: req.body.user,
+        Category: req.body.category,
+        Detail: req.body.detail,
+        Amount: req.body.amount,
+        DetailAmount: req.body.detailAmount,
+        DetailItems: JSON.stringify(req.body.detailItems || []), // 투자비 내역 상세 저장
+        Month: req.body.month,
+        Project: req.body.project,
+        ProjectSOP: req.body.projectSOP,
+        // 수정 시에는 상태를 유지하고, 수정 정보만 업데이트
+        ModifiedBy: req.user.email,
+        ModifiedDate: new Date().toISOString()
+      }
+    };
+
+    // SharePoint에서 투자비 요청 수정
+    const response = await axios.patch(
+      `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items/${investmentId}`,
+      updateData,
+      {
+        headers: {
+          'Authorization': `Bearer ${req.accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: '투자비 요청이 성공적으로 수정되었습니다.',
+      data: response.data
+    });
+
+  } catch (error) {
+    console.error('Investment update error:', error.response?.data || error.message);
+    res.status(500).json({
+      error: '투자비 요청 수정에 실패했습니다.',
+      message: error.response?.data?.error?.message || 'Unknown error occurred'
+    });
+  }
+});
+
+/**
+ * 특정 투자비 요청 조회
+ * GET /api/investments/:id
+ */
+router.get('/:id', authenticateToken, async (req, res) => {
+  try {
+    const investmentId = req.params.id;
+
+    const response = await axios.get(
+      `https://graph.microsoft.com/v1.0/sites/${process.env.SHAREPOINT_SITE_ID}/lists/${process.env.SHAREPOINT_LIST_ID}/items/${investmentId}?expand=fields`,
+      {
+        headers: {
+          'Authorization': `Bearer ${req.accessToken}`
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      data: response.data
+    });
+
+  } catch (error) {
+    console.error('Investment detail error:', error.response?.data || error.message);
+    res.status(500).json({
+      error: '투자비 요청 조회에 실패했습니다.',
+      message: error.response?.data?.error?.message || 'Unknown error occurred'
+    });
+  }
+});
+
 module.exports = router;

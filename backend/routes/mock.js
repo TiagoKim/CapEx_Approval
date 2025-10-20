@@ -30,7 +30,8 @@ const mockInvestments = [
       RequestedDate: '2024-01-15T09:00:00Z',
       ProcessedBy: '',
       ProcessedDate: '',
-      AdminComment: ''
+      AdminComment: '',
+      RequestDate: '2024-01-15T09:00:00Z'
     }
   },
   {
@@ -57,7 +58,8 @@ const mockInvestments = [
       RequestedDate: '2024-01-10T14:30:00Z',
       ProcessedBy: 'admin@company.com',
       ProcessedDate: '2024-01-12T10:15:00Z',
-      AdminComment: '예산 범위 내에서 승인합니다.'
+      AdminComment: '예산 범위 내에서 승인합니다.',
+      RequestDate: '2024-01-10T14:30:00Z'
     }
   },
   {
@@ -79,7 +81,8 @@ const mockInvestments = [
       RequestedDate: '2024-01-20T11:45:00Z',
       ProcessedBy: 'admin@company.com',
       ProcessedDate: '2024-01-22T16:20:00Z',
-      AdminComment: '예산 초과로 인해 거절합니다. 대안을 검토해주세요.'
+      AdminComment: '예산 초과로 인해 거절합니다. 대안을 검토해주세요.',
+      RequestDate: '2024-01-20T11:45:00Z'
     }
   },
   {
@@ -101,7 +104,8 @@ const mockInvestments = [
       RequestedDate: '2024-01-25T08:30:00Z',
       ProcessedBy: '',
       ProcessedDate: '',
-      AdminComment: ''
+      AdminComment: '',
+      RequestDate: '2024-01-25T08:30:00Z'
     }
   },
   {
@@ -123,7 +127,35 @@ const mockInvestments = [
       RequestedDate: '2024-01-28T13:15:00Z',
       ProcessedBy: 'admin@company.com',
       ProcessedDate: '2024-01-30T09:45:00Z',
-      AdminComment: '승인합니다. 단계적 도입을 권장합니다.'
+      AdminComment: '승인합니다. 단계적 도입을 권장합니다.',
+      RequestDate: '2024-01-28T13:15:00Z'
+    }
+  },
+  {
+    id: 'mock-006',
+    fields: {
+      Title: '임시저장 테스트',
+      Company: '한국법인',
+      Team: 'IT팀',
+      User: '김개발',
+      Category: 'IT인프라',
+      Detail: '임시저장된 투자비 요청입니다.',
+      Amount: 3000000,
+      DetailAmount: 3000000,
+      DetailItems: JSON.stringify([
+        { description: '임시 항목 1', amount: 2000000 },
+        { description: '임시 항목 2', amount: 1000000 }
+      ]),
+      Month: '2024-02',
+      Project: '임시저장 프로젝트',
+      ProjectSOP: 'SOP-TEMP-001',
+      Status: 'Draft',
+      RequestedBy: 'user@company.com',
+      RequestedDate: '2024-02-01T10:00:00Z',
+      ProcessedBy: '',
+      ProcessedDate: '',
+      AdminComment: '',
+      RequestDate: '2024-02-01T10:00:00Z'
     }
   }
 ];
@@ -134,7 +166,7 @@ const mockInvestments = [
  */
 router.get('/investments', (req, res) => {
   try {
-    const { status, company, month, page = 1, limit = 10 } = req.query;
+    const { status, company, month, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
     
     let filteredData = [...mockInvestments];
     
@@ -147,6 +179,21 @@ router.get('/investments', (req, res) => {
     }
     if (month) {
       filteredData = filteredData.filter(item => item.fields.Month === month);
+    }
+    if (dateFrom) {
+      filteredData = filteredData.filter(item => {
+        const requestDate = new Date(item.fields.RequestDate || item.fields.RequestedDate);
+        const fromDate = new Date(dateFrom);
+        return requestDate >= fromDate;
+      });
+    }
+    if (dateTo) {
+      filteredData = filteredData.filter(item => {
+        const requestDate = new Date(item.fields.RequestDate || item.fields.RequestedDate);
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999); // 하루 끝까지 포함
+        return requestDate <= toDate;
+      });
     }
     
     // 페이지네이션
@@ -182,7 +229,8 @@ router.get('/dashboard/stats', (req, res) => {
     const statusStats = {
       Pending: { count: 0, amount: 0 },
       Approved: { count: 0, amount: 0 },
-      Rejected: { count: 0, amount: 0 }
+      Rejected: { count: 0, amount: 0 },
+      Draft: { count: 0, amount: 0 }
     };
     
     // 법인별 통계
@@ -315,10 +363,11 @@ router.post('/investments', (req, res) => {
         Month: req.body.month,
         Project: req.body.project,
         ProjectSOP: req.body.projectSOP,
-        Status: 'Pending',
+        Status: req.body.status || 'Pending',
         RequestedBy: 'temp-user@company.com',
         RequestedDate: new Date().toISOString(),
-        AdminComment: ''
+        AdminComment: '',
+        RequestDate: new Date().toISOString()
       }
     };
 
@@ -377,6 +426,84 @@ router.patch('/investments/:id/status', (req, res) => {
     console.error('Mock investment status update error:', error);
     res.status(500).json({
       error: '투자비 요청 상태 변경에 실패했습니다.',
+      message: error.message
+    });
+  }
+});
+
+// 특정 투자비 조회
+router.get('/investments/:id', (req, res) => {
+  try {
+    const investmentId = req.params.id;
+    const investment = mockInvestments.find(item => item.id === investmentId);
+    
+    if (!investment) {
+      return res.status(404).json({
+        success: false,
+        message: '투자비 요청을 찾을 수 없습니다.'
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: investment
+    });
+  } catch (error) {
+    console.error('Get investment error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// 투자비 수정
+router.put('/investments/:id', (req, res) => {
+  try {
+    const investmentId = req.params.id;
+    const investmentIndex = mockInvestments.findIndex(item => item.id === investmentId);
+    
+    if (investmentIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: '투자비 요청을 찾을 수 없습니다.'
+      });
+    }
+    
+    // 기존 투자비 데이터 업데이트
+    const updatedInvestment = {
+      ...mockInvestments[investmentIndex],
+      fields: {
+        ...mockInvestments[investmentIndex].fields,
+        Title: req.body.title,
+        Company: req.body.company,
+        Team: req.body.team,
+        User: req.body.user,
+        Category: req.body.category,
+        Detail: req.body.detail,
+        Amount: req.body.amount,
+        DetailAmount: req.body.detailAmount,
+        DetailItems: JSON.stringify(req.body.detailItems || []),
+        Month: req.body.month,
+        Project: req.body.project,
+        ProjectSOP: req.body.projectSOP,
+        ModifiedBy: 'temp-user@company.com',
+        ModifiedDate: new Date().toISOString(),
+        RequestDate: new Date().toISOString()
+      }
+    };
+    
+    mockInvestments[investmentIndex] = updatedInvestment;
+    
+    res.json({
+      success: true,
+      message: '투자비 요청이 성공적으로 수정되었습니다.',
+      data: updatedInvestment
+    });
+  } catch (error) {
+    console.error('Update investment error:', error);
+    res.status(500).json({
+      success: false,
       message: error.message
     });
   }

@@ -82,6 +82,46 @@ class ApiService {
   }
 
   /**
+   * 투자비 요청 수정
+   */
+  async updateInvestment(id, investmentData) {
+    try {
+      // 임시 사용자인 경우 Mock API 사용
+      const isTempUser = localStorage.getItem('isTempUser') === 'true';
+      const endpoint = isTempUser ? `/mock/investments/${id}` : `/investments/${id}`;
+      
+      const response = await this.api.put(endpoint, investmentData);
+      return response.data;
+    } catch (error) {
+      console.error('Update investment error:', error);
+      throw new Error(
+        error.response?.data?.message || 
+        '투자비 요청 수정에 실패했습니다.'
+      );
+    }
+  }
+
+  /**
+   * 특정 투자비 요청 조회
+   */
+  async getInvestmentById(id) {
+    try {
+      // 임시 사용자인 경우 Mock API 사용
+      const isTempUser = localStorage.getItem('isTempUser') === 'true';
+      const endpoint = isTempUser ? `/mock/investments/${id}` : `/investments/${id}`;
+      
+      const response = await this.api.get(endpoint);
+      return response.data;
+    } catch (error) {
+      console.error('Get investment by id error:', error);
+      throw new Error(
+        error.response?.data?.message || 
+        '투자비 요청 조회에 실패했습니다.'
+      );
+    }
+  }
+
+  /**
    * 투자비 요청 목록 조회
    */
   async getInvestments(params = {}) {
@@ -113,22 +153,6 @@ class ApiService {
       throw new Error(
         error.response?.data?.message || 
         '투자비 요청 조회에 실패했습니다.'
-      );
-    }
-  }
-
-  /**
-   * 투자비 요청 수정
-   */
-  async updateInvestment(id, investmentData) {
-    try {
-      const response = await this.api.put(`/investments/${id}`, investmentData);
-      return response.data;
-    } catch (error) {
-      console.error('Update investment error:', error);
-      throw new Error(
-        error.response?.data?.message || 
-        '투자비 요청 수정에 실패했습니다.'
       );
     }
   }

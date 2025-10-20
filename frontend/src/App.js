@@ -77,9 +77,12 @@ function App() {
       
       // 임시 로그인 처리
       if (loginData.tempLogin) {
+        console.log('Processing temp login with data:', loginData);
         const response = await authService.tempLogin(loginData.role);
+        console.log('Temp login response in App.js:', response);
         
         if (response.success) {
+          console.log('Temp login successful, setting user:', response.user);
           setUser(response.user);
           setIsAuthenticated(true);
           apiService.setAuthToken(response.token);
@@ -90,6 +93,9 @@ function App() {
           
           toast.success(`환영합니다, ${response.user.name}님! (임시 로그인)`);
           return true;
+        } else {
+          console.error('Temp login failed - response not successful:', response);
+          return false;
         }
       } else {
         // 일반 Azure AD 로그인
@@ -175,6 +181,16 @@ function App() {
           {/* 투자비 요청 작성 페이지 */}
           <Route 
             path="/form" 
+            element={
+              isAuthenticated ? 
+                <Form user={user} /> : 
+                <Navigate to="/login" replace />
+            } 
+          />
+          
+          {/* 투자비 요청 수정 페이지 */}
+          <Route 
+            path="/form/:id" 
             element={
               isAuthenticated ? 
                 <Form user={user} /> : 

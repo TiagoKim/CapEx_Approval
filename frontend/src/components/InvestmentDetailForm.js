@@ -218,6 +218,7 @@ function InvestmentDetailForm({ value, onChange, totalAmount }) {
             style={{ backgroundColor: '#f8f9fa', color: '#666' }}
           />
           <RemoveButton
+            type="button"
             onClick={() => removeDetailItem(index)}
             disabled={details.length <= 1}
             title="항목 삭제"
@@ -227,7 +228,7 @@ function InvestmentDetailForm({ value, onChange, totalAmount }) {
         </DetailItem>
       ))}
 
-      <AddItemButton onClick={addDetailItem}>
+      <AddItemButton type="button" onClick={addDetailItem}>
         <Plus size={16} />
         항목 추가
       </AddItemButton>

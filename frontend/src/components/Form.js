@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
+import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import styled from 'styled-components';
-import { Save, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { Save, Send, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 
 import { apiService } from '../services/apiService';
 import InvestmentDetailForm from './InvestmentDetailForm';
@@ -206,9 +207,13 @@ const SuccessMessage = styled.div`
 
 /**
  * Form Component
- * 투자비 승인 요청 작성 폼
+ * 투자비 승인 요청 작성/수정 폼
  */
 function Form({ user }) {
+  const { id } = useParams(); // URL에서 투자비 ID 가져오기
+  const navigate = useNavigate();
+  const isEditMode = Boolean(id); // 수정 모드 여부
+
   const { register, handleSubmit, formState: { errors }, reset, watch } = useForm({
     defaultValues: {
       company: '',
@@ -227,6 +232,8 @@ function Form({ user }) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [detailItems, setDetailItems] = useState([]);
+  const [loadingData, setLoadingData] = useState(false);
+  const [isDraft, setIsDraft] = useState(false);
 
   // 카테고리 옵션
   const categoryOptions = [
@@ -262,16 +269,32 @@ function Form({ user }) {
         detailItems: detailItems // 투자비 내역 상세 추가
       };
 
-      const response = await apiService.createInvestment(formData);
-      
-      if (response.success) {
-        setSuccess(true);
-        reset();
-        toast.success('투자비 승인 요청이 성공적으로 제출되었습니다.');
+      let response;
+      if (isEditMode) {
+        // 수정 모드
+        response = await apiService.updateInvestment(id, formData);
+        if (response.success) {
+          setSuccess(true);
+          toast.success('투자비 요청이 성공적으로 수정되었습니다.');
+          // 수정 완료 후 목록으로 이동
+          setTimeout(() => {
+            navigate('/list');
+          }, 2000);
+        }
+      } else {
+        // 새 작성 모드
+        response = await apiService.createInvestment(formData);
+        if (response.success) {
+          setSuccess(true);
+          reset();
+          setDetailItems([]); // 투자비 내역 상세 초기화
+          localStorage.removeItem('investmentDraft'); // 임시저장 데이터 삭제
+          toast.success('투자비 승인 요청이 성공적으로 제출되었습니다.');
+        }
       }
     } catch (error) {
       console.error('Form submission error:', error);
-      toast.error(error.message || '투자비 요청 제출에 실패했습니다.');
+      toast.error(error.message || (isEditMode ? '투자비 요청 수정에 실패했습니다.' : '투자비 요청 제출에 실패했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -280,45 +303,193 @@ function Form({ user }) {
   /**
    * 임시 저장 처리
    */
-  const handleSaveDraft = () => {
-    const formData = watch();
-    localStorage.setItem('investmentDraft', JSON.stringify(formData));
-    toast.info('임시 저장되었습니다.');
+  const handleSaveDraft = async () => {
+    try {
+      setLoading(true);
+      const formData = watch();
+      const draftData = {
+        ...formData,
+        detailItems: detailItems,
+        status: 'Draft' // 임시저장 상태로 설정
+      };
+      
+      // API 호출하여 임시저장
+      const response = await apiService.createInvestment(draftData);
+      if (response.success) {
+        localStorage.setItem('investmentDraft', JSON.stringify(draftData));
+        toast.info('임시 저장되었습니다.');
+      }
+    } catch (error) {
+      console.error('Draft save error:', error);
+      toast.error('임시 저장에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   /**
-   * 임시 저장된 데이터 불러오기
+   * 투자비 데이터 로드
+   */
+  const loadInvestmentData = useCallback(async (investmentId) => {
+    console.log('Loading investment data for ID:', investmentId);
+    setLoadingData(true);
+    try {
+      const response = await apiService.getInvestmentById(investmentId);
+      console.log('API response:', response);
+      if (response.success && response.data) {
+        const investment = response.data;
+        const fields = investment.fields || investment;
+        
+        console.log('Raw investment data:', investment);
+        console.log('Fields data:', fields);
+        
+        // 폼 데이터 설정
+        const formData = {
+          company: fields.Company || '',
+          team: fields.Team || '',
+          user: fields.User || '',
+          title: fields.Title || '',
+          category: fields.Category || '',
+          detail: fields.Detail || '',
+          amount: fields.Amount || '',
+          month: fields.Month || new Date().toISOString().slice(0, 7),
+          project: fields.Project || '',
+          projectSOP: fields.ProjectSOP || ''
+        };
+        
+        console.log('Form data to be set:', formData);
+        reset(formData);
+        
+        // 폼 데이터가 제대로 설정되었는지 확인
+        setTimeout(() => {
+          console.log('Form data after reset:', {
+            company: formData.company,
+            title: formData.title,
+            detail: formData.detail,
+            amount: formData.amount
+          });
+        }, 100);
+        
+        // 투자비 내역 상세 설정
+        console.log('DetailItems raw data:', fields.DetailItems);
+        if (fields.DetailItems) {
+          try {
+            const detailItems = JSON.parse(fields.DetailItems);
+            console.log('Parsed DetailItems:', detailItems);
+            const finalDetailItems = Array.isArray(detailItems) ? detailItems : [];
+            setDetailItems(finalDetailItems);
+            console.log('DetailItems state set to:', finalDetailItems);
+          } catch (error) {
+            console.error('Error parsing DetailItems:', error);
+            setDetailItems([]);
+          }
+        } else {
+          console.log('No DetailItems found, setting empty array');
+          setDetailItems([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading investment data:', error);
+      toast.error('투자비 데이터를 불러오는데 실패했습니다.');
+      navigate('/form'); // 에러 시 새 작성 폼으로 이동
+    } finally {
+      setLoadingData(false);
+    }
+  }, [reset, navigate]);
+
+  /**
+   * 수정 모드일 때 기존 데이터 로드
+   */
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadInvestmentData(id);
+    }
+  }, [isEditMode, id, loadInvestmentData]);
+
+  /**
+   * 임시 저장된 데이터 불러오기 (새 작성 모드에서만)
    */
   React.useEffect(() => {
-    const savedDraft = localStorage.getItem('investmentDraft');
-    if (savedDraft) {
-      try {
-        const draftData = JSON.parse(savedDraft);
-        Object.keys(draftData).forEach(key => {
-          if (draftData[key] !== undefined) {
-            // react-hook-form의 setValue 사용
-            reset({ ...watch(), [key]: draftData[key] });
+    if (!isEditMode) {
+      const savedDraft = localStorage.getItem('investmentDraft');
+      if (savedDraft) {
+        try {
+          const draftData = JSON.parse(savedDraft);
+          
+          // 폼 데이터 복원
+          const formFields = {};
+          Object.keys(draftData).forEach(key => {
+            if (key !== 'detailItems' && draftData[key] !== undefined) {
+              formFields[key] = draftData[key];
+            }
+          });
+          
+          if (Object.keys(formFields).length > 0) {
+            reset(formFields);
           }
-        });
-      } catch (error) {
-        console.error('Error loading draft:', error);
+          
+          // 투자비 내역 상세 복원
+          if (draftData.detailItems && Array.isArray(draftData.detailItems)) {
+            setDetailItems(draftData.detailItems);
+          }
+        } catch (error) {
+          console.error('Error loading draft:', error);
+        }
       }
     }
-  }, [reset, watch]);
+  }, [reset, isEditMode]);
+
+  // 뒤로가기 버튼 스타일 추가
+  const BackButton = styled.button`
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-2px);
+    }
+  `;
 
   return (
     <FormContainer>
       <FormCard>
         <FormHeader>
-          <FormTitle>투자비 승인 요청</FormTitle>
-          <FormSubtitle>투자비 사용을 위한 승인 요청서를 작성해주세요</FormSubtitle>
+          {isEditMode && (
+            <BackButton onClick={() => navigate('/list')} title="목록으로 돌아가기">
+              <ArrowLeft size={20} />
+            </BackButton>
+          )}
+          <FormTitle>
+            {isEditMode ? '투자비 승인 요청 수정' : '투자비 승인 요청'}
+          </FormTitle>
+          <FormSubtitle>
+            {isEditMode ? '투자비 승인 요청서를 수정해주세요' : '투자비 사용을 위한 승인 요청서를 작성해주세요'}
+          </FormSubtitle>
         </FormHeader>
 
         <FormBody>
+          {loadingData && (
+            <SuccessMessage style={{ background: '#e3f2fd', color: '#1976d2' }}>
+              <AlertCircle size={18} />
+              투자비 데이터를 불러오는 중...
+            </SuccessMessage>
+          )}
+
           {success && (
             <SuccessMessage>
               <CheckCircle size={18} />
-              투자비 승인 요청이 성공적으로 제출되었습니다.
+              {isEditMode ? '투자비 요청이 성공적으로 수정되었습니다.' : '투자비 승인 요청이 성공적으로 제출되었습니다.'}
             </SuccessMessage>
           )}
 
@@ -560,25 +731,27 @@ function Form({ user }) {
             />
 
             <ButtonGroup>
-              <SaveButton
-                type="button"
-                onClick={handleSaveDraft}
-                disabled={loading}
-              >
-                <Save size={18} />
-                임시저장
-              </SaveButton>
+              {!isEditMode && (
+                <SaveButton
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={loading}
+                >
+                  <Save size={18} />
+                  임시저장
+                </SaveButton>
+              )}
 
               <SubmitButton
                 type="submit"
-                disabled={loading}
+                disabled={loading || loadingData}
               >
                 {loading ? (
                   <LoadingSpinner />
                 ) : (
                   <Send size={18} />
                 )}
-                {loading ? '제출 중...' : '승인 요청 제출'}
+                {loading ? (isEditMode ? '수정 중...' : '제출 중...') : (isEditMode ? '수정 완료' : '승인 요청 제출')}
               </SubmitButton>
             </ButtonGroup>
           </form>

@@ -144,10 +144,16 @@ class AuthService {
    */
   async tempLogin(role = 'admin') {
     try {
+      console.log('Starting temp login with role:', role);
+      console.log('API base URL:', API_BASE_URL);
+      
       const response = await this.api.post('/auth/temp-login', { role });
+      console.log('Temp login response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Temp login error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error message:', error.message);
       throw new Error(
         error.response?.data?.message || 
         '임시 로그인에 실패했습니다.'

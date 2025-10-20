@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { toast } from 'react-toastify';
 import { 
@@ -173,6 +174,11 @@ const StatusBadge = styled.span`
   &.rejected {
     background: #f8d7da;
     color: #721c24;
+  }
+
+  &.draft {
+    background: #e2e3e5;
+    color: #383d41;
   }
 `;
 
@@ -417,6 +423,7 @@ const ConfirmButton = styled.button`
  * 투자비 요청 목록 표시 및 관리
  */
 function InvestmentList({ user, showActions = true, limit = null, onStatusChange }) {
+  const navigate = useNavigate();
   const [investments, setInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -424,7 +431,9 @@ function InvestmentList({ user, showActions = true, limit = null, onStatusChange
     search: '',
     status: '',
     company: '',
-    month: ''
+    month: '',
+    dateFrom: '',
+    dateTo: ''
   });
   const [pagination, setPagination] = useState({
     page: 1,
@@ -583,9 +592,10 @@ function InvestmentList({ user, showActions = true, limit = null, onStatusChange
    */
   const renderStatusBadge = (status) => {
     const statusMap = {
-      'Pending': { text: '대기', class: 'pending' },
+      'Pending': { text: '승인 대기', class: 'pending' },
       'Approved': { text: '승인', class: 'approved' },
-      'Rejected': { text: '거절', class: 'rejected' }
+      'Rejected': { text: '거절', class: 'rejected' },
+      'Draft': { text: '작업중', class: 'draft' }
     };
 
     const statusInfo = statusMap[status] || { text: status, class: 'pending' };
@@ -620,8 +630,10 @@ function InvestmentList({ user, showActions = true, limit = null, onStatusChange
           <EditButton
             title="수정"
             onClick={() => {
-              // 수정 로직 구현
-              toast.info('수정 기능은 추후 구현됩니다.');
+              // 수정 페이지로 이동
+              console.log('Direct edit button clicked, investment:', investment);
+              console.log('Investment ID:', investment.id);
+              navigate(`/form/${investment.id}`);
             }}
           >
             <Edit size={16} />
@@ -637,7 +649,7 @@ function InvestmentList({ user, showActions = true, limit = null, onStatusChange
           </DeleteButton>
         )}
 
-        {isAdmin && showActions && (
+        {isAdmin && showActions && investment.fields?.Status !== 'Draft' && (
           <>
             <ApproveButton
               title="승인"
@@ -700,9 +712,10 @@ function InvestmentList({ user, showActions = true, limit = null, onStatusChange
                 onChange={(e) => handleFilterChange('status', e.target.value)}
               >
                 <option value="">전체</option>
-                <option value="Pending">대기</option>
+                <option value="Pending">승인 대기</option>
                 <option value="Approved">승인</option>
                 <option value="Rejected">거절</option>
+                <option value="Draft">작업중</option>
               </FilterSelect>
             </FilterGroup>
 
@@ -727,6 +740,24 @@ function InvestmentList({ user, showActions = true, limit = null, onStatusChange
                 type="month"
                 value={filters.month}
                 onChange={(e) => handleFilterChange('month', e.target.value)}
+              />
+            </FilterGroup>
+
+            <FilterGroup>
+              <FilterLabel>요청일 From</FilterLabel>
+              <FilterInput
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+              />
+            </FilterGroup>
+
+            <FilterGroup>
+              <FilterLabel>요청일 To</FilterLabel>
+              <FilterInput
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => handleFilterChange('dateTo', e.target.value)}
               />
             </FilterGroup>
 
@@ -876,8 +907,10 @@ function InvestmentList({ user, showActions = true, limit = null, onStatusChange
           }}
           onStatusChange={handleStatusChange}
           onEdit={(investment) => {
-            // 수정 기능 구현
-            toast.info('수정 기능은 추후 구현됩니다.');
+            // 수정 페이지로 이동
+            console.log('Edit button clicked, investment:', investment);
+            console.log('Investment ID:', investment.id);
+            navigate(`/form/${investment.id}`);
           }}
           onDelete={handleDelete}
         />

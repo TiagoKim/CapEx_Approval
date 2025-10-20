@@ -167,7 +167,9 @@ router.get('/login-url', (req, res) => {
  */
 router.post('/temp-login', (req, res) => {
   try {
+    console.log('Temp login request received:', req.body);
     const { email, role } = req.body;
+    console.log('Extracted email:', email, 'role:', role);
     
     // 임시 사용자 데이터
     const tempUsers = {
